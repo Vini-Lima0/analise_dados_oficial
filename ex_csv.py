@@ -12,6 +12,7 @@ df = pd.read_csv('notas.csv')
 print("Linhas:", df.shape[0])
 print("Colunas:", df.shape[1])
 # 2. Quais são os tipos de dados?
+print(df.dtypes)
 
 # 3. Existe coluna com valores ausentes?
 # 4. Qual é o período de anos disponível? 
