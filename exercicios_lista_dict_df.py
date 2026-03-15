@@ -29,6 +29,7 @@ dados_vendas = {
 print("\n--- BLOCO 1 ---")
 # a) Crie o DataFrame df_vendas usando dados_vendas
 df_vendas = pd.DataFrame(dados_vendas)
+print("DataFrame criado:\n", df_vendas)
 
 # b) Mostre as 5 primeiras linhas
 print("5 primeiras linhas:\n", df_vendas.head())
