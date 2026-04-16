@@ -1,0 +1,150 @@
+# O dataset LOGCP - base_tickets_manutencao_historico.xlsx contém o histórico de incidentes da empresa.
+# Através da importantação dos dados através da biblioteca pandas, responda as perguntas abaixo.
+# 1 - (1,0) Quantos tickets foram (utilize a coluna "des_status"):
+import pandas as pd
+df = pd.read_excel("LOGCP_-_base_tickets_manutencao_historico.xlsx")
+#    - Abertos? 
+abertos = df[df["des_status"] == "open"].shape[0]
+print(f"  Abertos:    {abertos}")
+#    - Concluídos?
+concluidos = df[df["des_status"].isin(["closed", "solved"])].shape[0]  
+print(f"  Concluídos: {concluidos}") 
+#    - Cancelados?
+cancelados = df[df["des_status"] == "deleted"].shape[0] 
+print(f"  Concluídos: {concluidos}")
+
+# 2 - (1,0) Qual a taxa de conclusão dos tickets em relação ao total?
+total = len(df)
+taxa_conclusao = concluidos / total * 100
+print(f"Taxa de conclusão: {taxa_conclusao:.2f}%")
+
+# 3 - (1,0) Qual categoria tem mais tickets(utilize a coluna "des_categoria")?
+categoria_mais = df["des_categoria"].value_counts()
+print(f"Categoria com MAIS tickets: '{categoria_mais.idxmax()}' com {categoria_mais.max()} tickets")
+
+# 4 - (1,0) Qual categoria tem maior numero de de cancelamento?
+cancelados_df = df[df["des_status"] == "deleted"]
+cancel_por_categoria = cancelados_df["des_categoria"].value_counts()
+print(f"Categoria com MAIS cancelamentos: '{cancel_por_categoria.idxmax()}' com {cancel_por_categoria.max()} cancelamentos")
+
+# 5 - (1,0) Quanto rendeu a VALE3 nos ultimos 5 anos entre 2020 e 2025?
+import requests
+
+base_url = "https://laboratoriodefinancas.com/api/v2"
+token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc4OTMxOTY1LCJpYXQiOjE3NzYzMzk5NjUsImp0aSI6ImU4ZjUwYjVmZjViNTQ2NGRhYjc3YjFkYTg3NWIyZWFmIiwidXNlcl9pZCI6IjEwOSJ9.QvZYzosLQcWBX5oM1NWbbVaYLYwBM5wn2IaTadXxEhM"
+params = {"ticker": "VALE3", "data_ini": "2020-01-01", "data_fim": "2025-12-31"}
+response = requests.get(
+      f"{base_url}/preco/corrigido",
+      headers={"Authorization": f"Bearer {token}"},
+      params=params,
+  )
+
+df_vale = pd.DataFrame(response.json())
+df_vale["fechamento"] = df_vale["fechamento"].astype(float)
+df_vale["data"] = pd.to_datetime(df_vale["data"])
+
+preco_inicial = df_vale["fechamento"].iloc[0]
+preco_final   = df_vale["fechamento"].iloc[-1]
+rendimento    = ((preco_final - preco_inicial) / preco_inicial) * 100
+
+print(f"Q5 - Rendimento da VALE3 (2020-2025):")
+print(f"  Preço inicial (jan/2020): R$ {preco_inicial:.2f}")
+print(f"  Preço final  (dez/2025): R$ {preco_final:.2f}")
+print(f"  Rendimento no período:   {rendimento:.2f}%")
+
+# 6 - (1,0) A BrasilAPI disponibiliza informações da tabela FIPE, incluindo marcas, modelos e preços de veículos.
+# Acesse o endpoint de marcas da FIPE para o tipo de veículo carros.
+# Construa um DataFrame com os modelos disponíveis.
+# Responda: quantos modelos de veículos BYD estão cadastrados na FIPE?
+import requests                                                                                                                         
+import pandas as pd                                                                                                                                       
+tipoVeiculo = "carros"                                                                                                                
+api = f"https://brasilapi.com.br/api/fipe/marcas/v1/{tipoVeiculo}"                                                                      
+df_marcas = pd.DataFrame(requests.get(api).json())                                                                                                                                                                                                                         
+codigo_byd = df_marcas[df_marcas["nome"].str.contains("BYD", case=False)]["valor"].values[0]                                                                                                                                    
+api2 = f"https://brasilapi.com.br/api/fipe/veiculos/v1/{tipoVeiculo}/{codigo_byd}"                                                    
+df_modelos = pd.DataFrame(requests.get(api2).json())                                                                                                                                                                                                                          
+print(f"  - Código BYD: {codigo_byd}")                                                                                                 
+print(f"     Modelos cadastrados na FIPE: {len(df_modelos)}")
+
+# 7 - (1,0) O Banco Mundial disponibiliza uma API pública com diversos indicadores econômicos. 
+# O código do indicador NY.GDP.PCAP.CD corresponde ao PIB per capita (em dólares correntes).
+# Usando Python e a biblioteca requests para acessar a API e pandas para manipulação dos dados:
+# Acesse o indicador "NY.GDP.PCAP.CD" e o pais "BRA".
+# url = f"https://api.worldbank.org/v2/country/{pais}/indicator/{indicador}?format=json"
+# Construa um DataFrame atraves do segundo elemento da lista do retorno
+# Selecione apenas as colunas anos (date) e os valores de PIB per capita (value).
+# Identifique em qual ano o Brasil apresentou o menor PIB per capita e mostre o respectivo valor.
+pais = "BRA"
+indicador = "NY.GDP.PCAP.CD"
+url = f"https://api.worldbank.org/v2/country/{pais}/indicator/{indicador}?format=json&per_page=100"
+response = requests.get(url)
+df_pib = pd.DataFrame(response.json()[1])
+df_pib = df_pib[["date", "value"]].dropna()
+df_pib["value"] = df_pib["value"].astype(float)
+idx = df_pib["value"].idxmin()
+print(" - Menor PIB per capita do Brasil:")
+print(df_pib.loc[idx])
+
+
+# 8 - (1,0) - Faça um ranking das 30 melhores empresas baseado nos indicadores Return on Equity (roe) e Dividend Yield (dividend_yield) no dia 2024-04-01.
+# Faça uma média entre o ranking das empresas com maior ROE e o ranking das empresas com maior dividend_yield
+base_url = "https://laboratoriodefinancas.com/api/v2"
+token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc4OTMxOTY1LCJpYXQiOjE3NzYzMzk5NjUsImp0aSI6ImU4ZjUwYjVmZjViNTQ2NGRhYjc3YjFkYTg3NWIyZWFmIiwidXNlcl9pZCI6IjEwOSJ9.QvZYzosLQcWBX5oM1NWbbVaYLYwBM5wn2IaTadXxEhM"
+response = requests.get(
+      f"{base_url}/bolsa/planilhao",
+      headers={"Authorization": f"Bearer {token}"},
+      params={"data_base": "2024-04-01"},
+  )
+df = pd.DataFrame(response.json())
+df["roe"] = pd.to_numeric(df["roe"], errors="coerce")
+df["dividend_yield"] = pd.to_numeric(df["dividend_yield"], errors="coerce")
+df = df.dropna(subset=["roe", "dividend_yield"])
+df["rank_roe"] = df["roe"].rank(ascending=False)
+df["rank_dy"]  = df["dividend_yield"].rank(ascending=False)
+df["rank_medio"] = (df["rank_roe"] + df["rank_dy"]) / 2
+top30 = df.nsmallest(30, "rank_medio")
+print("Q8 - Top 30 empresas por ROE e Dividend Yield:")
+print(top30[["ticker", "roe", "dividend_yield", "rank_medio"]])
+
+# 9 - (1,0) Quantos setores ("setor") tem essa carteira formada por 30 ações?
+print(f"\nQ9 - Número de setores no portfólio: {top30['setor'].nunique()}")
+print(top30["setor"].value_counts())
+
+
+# 10 - (1,0) 11 - Você tem acesso à API do Laboratório de Finanças, que fornece dados do Planilhão em formato JSON. 
+# Selecione a empresa do setor de "varejo" que apresenta o maior endividamento na data base 2024-04-01.
+# Exiba APENAS AS COLUNAS "ticker", "setor", "preco", "endividamento"
+base_url = "https://laboratoriodefinancas.com/api/v2"
+token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc4OTMxOTY1LCJpYXQiOjE3NzYzMzk5NjUsImp0aSI6ImU4ZjUwYjVmZjViNTQ2NGRhYjc3YjFkYTg3NWIyZWFmIiwidXNlcl9pZCI6IjEwOSJ9.QvZYzosLQcWBX5oM1NWbbVaYLYwBM5wn2IaTadXxEhM"
+response = requests.get(
+  f"{base_url}/bolsa/planilhao",
+  headers={"Authorization": f"Bearer {token}"},
+  params={"data_base": "2026-04-01"},
+)
+df["endividamento"] = pd.to_numeric(df["endividamento"], errors="coerce")
+varejo = df[df["setor"] == "varejo"]
+mais_endividada = varejo.nlargest(1, "endividamento")[["ticker", "setor", "preco", "endividamento"]]
+print("\nQ10 - Empresa de varejo com maior endividamento:")
+print(mais_endividada)
+
+
+# 11 - (1,0) O IPEA disponibiliza uma API pública com diversas séries econômicas.
+# Para localizar uma série de interesse, é necessário acessar primeiro o endpoint de metadados.
+# Acesse o endpoint de metadados:
+"http://www.ipeadata.gov.br/api/odata4/Metadados"
+# Transforme o retorno em um DataFrame.
+# Filtre para encontrar as séries do IBGE relacionadas à taxa de desemprego no Brasil.
+# Dica:
+# - Utilize a coluna FNTSIGLA para encontrar as séries do "IBGE";
+# - Utilize a coluna SERNOME para encontrar as séries relacionadas a "Taxa de desemprego - cor negra"
+
+
+
+# 12 - (1,0) Descubra qual é o código da série correspondente (coluna: SERCODIGO).
+# CODIGO_ENCONTRADO = ''
+# Usando o código encontrado, acesse a API de valores:
+# f"http://ipeadata.gov.br/api/odata4/ValoresSerie(SERCODIGO='{CODIGO_ENCONTRADO}')"
+# Construa um DataFrame a partir da chave 'value' do retorno da API.
+# Selecione apenas as colunas de data (VALDATA) e valor (VALVALOR).
+# Exiba a Data e o Valor em que a taxa de desemprego atingiu o maior valor da série.
