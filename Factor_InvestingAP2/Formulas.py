@@ -40,7 +40,7 @@ acoes = [
 ]
 
 
-# %% ─── FATOR 1: VALUE ────────────────────────────────────────────────────────
+# %% --- FATOR 1: VALUE -------------------------------------------------------
 # Ideia: comprar ações "baratas" em relação ao seu valor real.
 # Usamos 4 indicadores fundamentalistas:
 #   P/L  (Preço / Lucro)            → quanto o mercado paga por R$1 de lucro
@@ -76,12 +76,12 @@ with ThreadPoolExecutor(max_workers=10) as executor:
             resultado.append(res)
 
 df = pd.DataFrame(resultado).sort_values("Value Score", ascending=False)
-print("─── TOP 10 VALUE (ações mais baratas) ───")
+print("--- TOP 10 VALUE (acoes mais baratas) ---")
 print(df.head(10).to_string(index=False))
 top_value = df.head(10)["Ação"].tolist()
 
 
-# %% ─── FATOR 2: MOMENTUM ─────────────────────────────────────────────────────
+# %% --- FATOR 2: MOMENTUM ----------------------------------------------------
 # Ideia: ações que subiram no último ano tendem a continuar subindo.
 # Simplesmente medimos o retorno total de cada ação nos últimos 12 meses.
 # Maior retorno = maior momentum = melhor posição no ranking.
@@ -92,12 +92,12 @@ dados = yf.download(acoes, period="1y", auto_adjust=True, progress=False)["Close
 retornos = ((dados.iloc[-1] - dados.iloc[0]) / dados.iloc[0] * 100).dropna().sort_values(ascending=False)
 
 df = pd.DataFrame({"Ação": retornos.index, "Momentum (%)": retornos.round(2).values})
-print("\n─── TOP 10 MOMENTUM (maiores altas em 12 meses) ───")
+print("\n--- TOP 10 MOMENTUM (maiores altas em 12 meses) ---")
 print(df.head(10).to_string(index=False))
 top_momentum = df.head(10)["Ação"].tolist()
 
 
-# %% ─── FATOR 3: LOW VOLATILITY ───────────────────────────────────────────────
+# %% --- FATOR 3: LOW VOLATILITY ----------------------------------------------
 # Ideia: ações que oscilam menos tendem a ter melhor retorno ajustado ao risco.
 # Usamos o Beta como medida de volatilidade:
 #   Beta = 1  → a ação oscila igual ao mercado (IBOV)
@@ -124,12 +124,12 @@ with ThreadPoolExecutor(max_workers=10) as executor:
             resultado.append(res)
 
 df = pd.DataFrame(resultado).sort_values("Low Volatility Score", ascending=False)
-print("\n─── TOP 10 LOW VOLATILITY (ações menos voláteis) ───")
+print("\n--- TOP 10 LOW VOLATILITY (acoes menos volateis) ---")
 print(df.head(10).to_string(index=False))
 top_low_vol = df.head(10)["Ação"].tolist()
 
 
-# %% ─── BACKTEST DO PORTFÓLIO MULTIFATOR ─────────────────────────────────────
+# %% --- BACKTEST DO PORTFOLIO MULTIFATOR ------------------------------------
 # Unimos as top 10 de cada fator para formar o portfólio final.
 # Backtest = simular como teria sido investir nessas ações no passado.
 # Estratégia: Equal Weight (mesmo valor investido em cada ação), sem rebalanceamento.
@@ -138,7 +138,7 @@ top_low_vol = df.head(10)["Ação"].tolist()
 
 # Portfólio = união das top 10 de cada fator (pode ter menos de 30 se houver sobreposição)
 portfolio = list(set(top_value + top_momentum + top_low_vol))
-print(f"\n─── PORTFÓLIO MULTIFATOR: {len(portfolio)} ações ───")
+print(f"\n--- PORTFOLIO MULTIFATOR: {len(portfolio)} acoes ---")
 print(sorted(portfolio))
 
 # Baixa preços históricos dos últimos 5 anos
@@ -162,57 +162,59 @@ ibov_ret = ibov_ret.loc[idx]
 rf_anual  = 0.1075       # Selic ~10,75% ao ano
 rf_diaria = rf_anual / 252  # 252 dias úteis por ano
 
-# ── Métricas de desempenho ──────────────────────────────────────────────────
+# -- Metricas de desempenho --------------------------------------------------
 
 # Retorno total e anualizado (CAGR)
-retorno_total      = (1 + portfolio_ret).prod() - 1
-n_anos             = len(portfolio_ret) / 252
+retorno_total = (1 + portfolio_ret).prod() - 1
+n_anos = len(portfolio_ret) / 252
 retorno_anualizado = (1 + retorno_total) ** (1 / n_anos) - 1
 
-# Volatilidade: mede o quanto o portfólio oscilou (desvio padrão anualizado)
+# Volatilidade: mede o quanto o portfolio oscilou (desvio padrao anualizado)
 volatilidade = portfolio_ret.std() * np.sqrt(252)
 
 # Sharpe Ratio: retorno extra (acima da Selic) por unidade de risco total
-# > 1 = bom | > 2 = muito bom | negativo = não compensou o risco vs. Selic
+# > 1 = bom | > 2 = muito bom | negativo = nao compensou o risco vs. Selic
 sharpe = (retorno_anualizado - rf_anual) / volatilidade
 
-# Sortino Ratio: igual ao Sharpe, mas considera só a volatilidade de queda
-# Penaliza menos as altas e mais as baixas — mais justo para o investidor
+# Sortino Ratio: igual ao Sharpe, mas considera so a volatilidade de queda
+# Penaliza menos as altas e mais as baixas
 retornos_negativos = portfolio_ret[portfolio_ret < rf_diaria]
 downside = retornos_negativos.std() * np.sqrt(252) if len(retornos_negativos) > 0 else 0
-sortino  = (retorno_anualizado - rf_anual) / downside if downside > 0 else 0
+sortino = (retorno_anualizado - rf_anual) / downside if downside > 0 else 0
 
-# Max Drawdown: maior queda do pico ao fundo durante o período
-# Ex: -25% significa que em algum momento o portfólio caiu 25% do seu topo
-cum_ret      = (1 + portfolio_ret).cumprod()
+# Max Drawdown: maior queda do pico ao fundo durante o periodo
+# Ex: -25% significa que em algum momento o portfolio caiu 25% do seu topo
+cum_ret = (1 + portfolio_ret).cumprod()
 max_drawdown = ((cum_ret - cum_ret.cummax()) / cum_ret.cummax()).min()
 
-# Beta: sensibilidade do portfólio em relação ao IBOV
-# Beta > 1 → cai/sobe mais que o mercado | Beta < 1 → cai/sobe menos
-cov_matrix    = np.cov(portfolio_ret.values, ibov_ret.values)
-beta          = cov_matrix[0, 1] / cov_matrix[1, 1]
+# Beta: sensibilidade do portfolio em relacao ao IBOV
+# Beta > 1 = cai/sobe mais que o mercado | Beta < 1 = cai/sobe menos
+cov_matrix = np.cov(portfolio_ret.values, ibov_ret.values)
+beta = cov_matrix[0, 1] / cov_matrix[1, 1]
 
-# Alpha: retorno extra gerado ALÉM do que o Beta já explicaria
-# Alpha positivo = o portfólio superou o mercado, ajustado pelo risco
+# Alpha: retorno extra gerado ALEM do que o Beta ja explicaria
+# Alpha positivo = o portfolio superou o mercado, ajustado pelo risco
 ibov_ret_anual = (1 + ibov_ret).prod() ** (252 / len(ibov_ret)) - 1
 alpha = retorno_anualizado - (rf_anual + beta * (ibov_ret_anual - rf_anual))
 
-# ── Resultado final ─────────────────────────────────────────────────────────
-print(f"\n{'='*45}")
-print(f"   BACKTEST — PORTFÓLIO MULTIFATOR")
-print(f"{'='*45}")
-print(f" Período:              {precos.index[0].date()} → {precos.index[-1].date()} ({n_anos:.1f} anos)")
-print(f" Nº de ações:          {len(precos.columns)}")
-print(f"{'─'*45}")
-print(f" Retorno Total:        {retorno_total*100:.2f}%")
-print(f" Retorno Anualizado:   {retorno_anualizado*100:.2f}%  (ao ano)")
-print(f" Volatilidade (a.a.):  {volatilidade*100:.2f}%  (oscilação média)")
-print(f"{'─'*45}")
+# -- Resultado final ---------------------------------------------------------
+sep = "=" * 45
+line = "-" * 45
+print("\n" + sep)
+print("   BACKTEST - PORTFOLIO MULTIFATOR")
+print(sep)
+print(f" Periodo:              {precos.index[0].date()} - {precos.index[-1].date()} ({n_anos:.1f} anos)")
+print(f" N. de acoes:          {len(precos.columns)}")
+print(line)
+print(f" Retorno Total:        {retorno_total * 100:.2f}%")
+print(f" Retorno Anualizado:   {retorno_anualizado * 100:.2f}%  (ao ano)")
+print(f" Volatilidade (a.a.):  {volatilidade * 100:.2f}%  (oscilacao media)")
+print(line)
 print(f" Sharpe Ratio:         {sharpe:.4f}  (retorno/risco total)")
 print(f" Sortino Ratio:        {sortino:.4f}  (retorno/risco de queda)")
-print(f"{'─'*45}")
-print(f" Max Drawdown:         {max_drawdown*100:.2f}%  (maior queda do período)")
-print(f"{'─'*45}")
+print(line)
+print(f" Max Drawdown:         {max_drawdown * 100:.2f}%  (maior queda do periodo)")
+print(line)
 print(f" Beta vs IBOV:         {beta:.4f}  (sensibilidade ao mercado)")
-print(f" Alpha (a.a.):         {alpha*100:.2f}%  (retorno acima do esperado)")
-print(f"{'='*45}")
+print(f" Alpha (a.a.):         {alpha * 100:.2f}%  (retorno acima do esperado)")
+print(sep)
