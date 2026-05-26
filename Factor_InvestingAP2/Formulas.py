@@ -60,7 +60,8 @@ print(df.head(10).to_string(index=False))
 
 dados = yf.download(acoes, period="1y", auto_adjust=True, progress=False)["Close"]
 retornos = ((dados.iloc[-1] - dados.iloc[0]) / dados.iloc[0] * 100).dropna().sort_values(ascending=False)
-print(retornos.head(10).round(2).to_string())
+df = pd.DataFrame({"Ação": retornos.index, "Momentum (%)": retornos.round(2).values})
+print(df.head(10).to_string(index=False))
 
 
 # %% Fórmula de low volatility
